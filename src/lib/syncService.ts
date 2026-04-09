@@ -211,8 +211,19 @@ class SyncService {
         return { success: false, error: 'Gist 中没有同步数据' }
       }
 
-      const decoded = decodeData(encrypted)
-      const data: SyncData = JSON.parse(decoded)
+      let data: SyncData
+      try {
+        // 尝试新的 base64 解码
+        const decoded = decodeData(encrypted)
+        data = JSON.parse(decoded)
+      } catch {
+        // 如果失败，可能是旧格式，尝试直接解析（兼容旧数据）
+        try {
+          data = JSON.parse(encrypted)
+        } catch {
+          return { success: false, error: '数据格式不兼容，请在电脑上重新上传数据' }
+        }
+      }
 
       this.config.lastSyncAt = Date.now()
       this.saveConfig(this.config)
