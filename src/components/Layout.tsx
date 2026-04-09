@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Home, Calendar, Music, CheckSquare, User,
-  LayoutDashboard, List, Settings, Shield, Users
+  LayoutDashboard, List, Settings, Shield, Users, Cloud
 } from 'lucide-react'
 import { useBandStore } from '@/store/useBandStore'
 import { useMemberStore } from '@/store/useMemberStore'
@@ -12,7 +12,7 @@ const MOBILE_TABS = [
   { to: '/calendar', icon: <Calendar />, label: '日程' },
   { to: '/scores', icon: <Music />, label: '乐谱' },
   { to: '/tasks', icon: <CheckSquare />, label: '任务' },
-  { to: '/my', icon: <User />, label: '我的' },
+  { to: '/sync', icon: <Cloud />, label: '同步' },
 ]
 
 const SIDEBAR_ITEMS = [

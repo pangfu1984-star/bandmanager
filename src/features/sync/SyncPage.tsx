@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useBandStore } from '@/store/useBandStore'
 import { syncService, type SyncConfig } from '@/lib/syncService'
 import { useToast } from '@/hooks/useToast'
-import { Cloud, CloudOff, Upload, Download, Settings, Check, AlertCircle } from 'lucide-react'
+import { Cloud, CloudOff, Upload, Download, Settings, Check, AlertCircle, Copy } from 'lucide-react'
 
 export function SyncPage() {
   const { currentBandId, getCurrentBand } = useBandStore()
@@ -13,6 +13,7 @@ export function SyncPage() {
   const [token, setToken] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const loaded = syncService.loadConfig()
@@ -38,6 +39,18 @@ export function SyncPage() {
     setConfig(null)
     setToken('')
     toast.success('配置已清除')
+  }
+
+  const handleCopyToken = async () => {
+    if (!token) return
+    try {
+      await navigator.clipboard.writeText(token)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      toast.success('Token 已复制到剪贴板')
+    } catch {
+      toast.error('复制失败，请手动复制')
+    }
   }
 
   const handleUpload = async () => {
@@ -131,13 +144,25 @@ export function SyncPage() {
               <label className="text-sm text-gray-600 block mb-1">
                 GitHub Personal Access Token
               </label>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                {token && (
+                  <button
+                    onClick={handleCopyToken}
+                    className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center gap-1 text-sm"
+                    title="复制 Token"
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied ? '已复制' : '复制'}
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-gray-400 mt-1">
                 在 GitHub Settings → Developer settings → Personal access tokens 中生成
               </p>
