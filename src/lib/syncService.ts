@@ -25,43 +25,13 @@ interface SyncData {
   updatedAt: number
 }
 
-// 简单的 XOR 加密（基础保护，非高强度加密）
-// 使用 Uint8Array 处理 Unicode 字符
-function encrypt(data: string, key: string): string {
-  const encoder = new TextEncoder()
-  const dataBytes = encoder.encode(data)
-  const keyBytes = encoder.encode(key)
-  const result = new Uint8Array(dataBytes.length)
-  
-  for (let i = 0; i < dataBytes.length; i++) {
-    result[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length]
-  }
-  
-  // 转换为 base64
-  const binary = Array.from(result, byte => String.fromCharCode(byte)).join('')
-  return btoa(binary)
+// 简单的 base64 编码（Gist 本身是私有的，不需要强加密）
+function encodeData(data: string): string {
+  return btoa(unescape(encodeURIComponent(data)))
 }
 
-function decrypt(encrypted: string, key: string): string {
-  const binary = atob(encrypted)
-  const encryptedBytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) {
-    encryptedBytes[i] = binary.charCodeAt(i)
-  }
-  
-  const keyBytes = new TextEncoder().encode(key)
-  const result = new Uint8Array(encryptedBytes.length)
-  
-  for (let i = 0; i < encryptedBytes.length; i++) {
-    result[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length]
-  }
-  
-  return new TextDecoder().decode(result)
-}
-
-// 生成同步密钥（基于 GitHub Token 和乐队ID）
-function generateSyncKey(token: string, bandId: string): string {
-  return token.slice(0, 16) + bandId.slice(-16)
+function decodeData(encoded: string): string {
+  return decodeURIComponent(escape(atob(encoded)))
 }
 
 class SyncService {
@@ -129,15 +99,14 @@ class SyncService {
 
     try {
       const syncData = await this.getAllSyncData()
-      const key = generateSyncKey(this.config.githubToken, bandId)
-      const encrypted = encrypt(JSON.stringify(syncData), key)
+      const encoded = encodeData(JSON.stringify(syncData))
 
       const gistData = {
         description: `BandManager 同步数据 - ${bandId}`,
         public: false,
         files: {
           'bandmanager-sync.json': {
-            content: encrypted,
+            content: encoded,
           },
         },
       }
@@ -242,9 +211,8 @@ class SyncService {
         return { success: false, error: 'Gist 中没有同步数据' }
       }
 
-      const key = generateSyncKey(this.config.githubToken, bandId)
-      const decrypted = decrypt(encrypted, key)
-      const data: SyncData = JSON.parse(decrypted)
+      const decoded = decodeData(encrypted)
+      const data: SyncData = JSON.parse(decoded)
 
       this.config.lastSyncAt = Date.now()
       this.saveConfig(this.config)
