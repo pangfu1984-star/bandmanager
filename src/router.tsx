@@ -39,6 +39,6 @@ export function AppRouter() {
           )} />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
