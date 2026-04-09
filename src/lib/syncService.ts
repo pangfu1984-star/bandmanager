@@ -26,21 +26,37 @@ interface SyncData {
 }
 
 // 简单的 XOR 加密（基础保护，非高强度加密）
+// 使用 Uint8Array 处理 Unicode 字符
 function encrypt(data: string, key: string): string {
-  let result = ''
-  for (let i = 0; i < data.length; i++) {
-    result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length))
+  const encoder = new TextEncoder()
+  const dataBytes = encoder.encode(data)
+  const keyBytes = encoder.encode(key)
+  const result = new Uint8Array(dataBytes.length)
+  
+  for (let i = 0; i < dataBytes.length; i++) {
+    result[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length]
   }
-  return btoa(result)
+  
+  // 转换为 base64
+  const binary = Array.from(result, byte => String.fromCharCode(byte)).join('')
+  return btoa(binary)
 }
 
 function decrypt(encrypted: string, key: string): string {
-  const data = atob(encrypted)
-  let result = ''
-  for (let i = 0; i < data.length; i++) {
-    result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length))
+  const binary = atob(encrypted)
+  const encryptedBytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    encryptedBytes[i] = binary.charCodeAt(i)
   }
-  return result
+  
+  const keyBytes = new TextEncoder().encode(key)
+  const result = new Uint8Array(encryptedBytes.length)
+  
+  for (let i = 0; i < encryptedBytes.length; i++) {
+    result[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length]
+  }
+  
+  return new TextDecoder().decode(result)
 }
 
 // 生成同步密钥（基于 GitHub Token 和乐队ID）
