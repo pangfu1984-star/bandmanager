@@ -8,6 +8,7 @@ import { SetlistsPage } from '@/features/setlists/SetlistsPage'
 import { BandSettingsPage } from '@/features/band/BandSettingsPage'
 import { BackupPage } from '@/features/backup/BackupPage'
 import { MyPage } from '@/features/my/MyPage'
+import { SyncPage } from '@/features/sync/SyncPage'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 function WrapRoute({ component: Component }: { component: React.ComponentType }) {
