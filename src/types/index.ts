@@ -75,6 +75,7 @@ export interface Score {
   partType: PartType
   tags: string[]
   uploadedAt: number
+  fileType?: string
 }
 
 // ==================== 歌单类型 ====================

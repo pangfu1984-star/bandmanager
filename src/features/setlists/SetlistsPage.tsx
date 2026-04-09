@@ -145,8 +145,7 @@ export function SetlistsPage() {
 
       let y = 55
       setlist.songs.forEach((song, i) => {
-        const score = bandScores.find(s => s.scoreId === song.scoreId) ??
-          scores.find(s => s.id === song.scoreId)
+        const score = scores.find(s => s.id === song.scoreId)
         const name = score?.songName ?? '未知歌曲'
         doc.setFontSize(12)
         doc.text(`${i + 1}. ${name}`, 20, y)

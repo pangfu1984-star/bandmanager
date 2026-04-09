@@ -57,7 +57,7 @@ describe('权限规则', () => {
   const adminMember = { id: 'admin1', role: 'admin' as const, bandId: 'b1', name: 'Admin', instrument: '', createdAt: 0 }
   const normalMember = { id: 'user1', role: 'member' as const, bandId: 'b1', name: 'User', instrument: '', createdAt: 0 }
 
-  function checkPermission(member: typeof adminMember, action: string, context?: { resourceCreatorId?: string; assigneeId?: string }): boolean {
+  function checkPermission(member: typeof adminMember | typeof normalMember, action: string, context?: { resourceCreatorId?: string; assigneeId?: string }): boolean {
     const isAdmin = member.role === 'admin'
     if (isAdmin) return true
     switch (action) {
