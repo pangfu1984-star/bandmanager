@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { CalendarPage } from '@/features/calendar/CalendarPage'
@@ -20,7 +20,7 @@ function WrapRoute({ component: Component }: { component: React.ComponentType })
 
 export function AppRouter() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
           <Route path="/" element={<WrapRoute component={DashboardPage} />} />
