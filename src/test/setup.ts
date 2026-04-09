@@ -1,19 +1,19 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
+import { IDBFactory } from 'fake-indexeddb'
 
 // Mock IndexedDB
-const { IDBFactory, IDBDatabase } = require('fake-indexeddb')
-global.indexedDB = new IDBFactory()
+;(globalThis as any).indexedDB = new IDBFactory()
 
 // Mock Notification
-global.Notification = {
+;(globalThis as any).Notification = {
   permission: 'granted',
   requestPermission: vi.fn().mockResolvedValue('granted'),
 } as unknown as typeof Notification
 
 // Mock URL.createObjectURL
-global.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock')
-global.URL.revokeObjectURL = vi.fn()
+;(globalThis as any).URL.createObjectURL = vi.fn().mockReturnValue('blob:mock')
+;(globalThis as any).URL.revokeObjectURL = vi.fn()
 
 // Mock localStorage
 const localStorageMock = (() => {

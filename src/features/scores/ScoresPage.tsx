@@ -346,9 +346,9 @@ export function ScoresPage() {
                   </div>
                 )}
               </div>
-            ) : previewScore.fileType.startsWith('image/') ? (
+            ) : previewScore.fileType?.startsWith('image/') ? (
               <img src={previewUrl} alt={previewScore.songName} className="max-w-full max-h-full object-contain rounded-lg" />
-            ) : previewScore.fileType.startsWith('audio/') ? (
+            ) : previewScore.fileType?.startsWith('audio/') ? (
               <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-4">
                 <Play className="w-16 h-16 text-blue-400" />
                 <p className="text-gray-700 font-medium">{previewScore.songName}</p>

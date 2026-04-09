@@ -12,7 +12,8 @@
     "composite": true,
     "strict": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "types": ["node"]
   },
   "include": ["vite.config.ts"]
 }
