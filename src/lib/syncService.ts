@@ -181,10 +181,46 @@ class SyncService {
     }
   }
 
+  // 查找用户的 Gist
+  async findGist(): Promise<string | null> {
+    if (!this.config?.githubToken) return null
+    
+    try {
+      const response = await fetch(`${GIST_API}?per_page=100`, {
+        headers: {
+          Authorization: `token ${this.config.githubToken}`,
+        },
+      })
+      
+      if (!response.ok) return null
+      
+      const gists = await response.json()
+      const syncGist = gists.find((g: any) => 
+        g.files['bandmanager-sync.json'] && 
+        g.description?.includes('BandManager')
+      )
+      
+      return syncGist?.id || null
+    } catch {
+      return null
+    }
+  }
+
   // 从 Gist 下载数据
   async downloadFromCloud(bandId: string): Promise<{ success: boolean; data?: SyncData; error?: string }> {
-    if (!this.config?.githubToken || !this.config.gistId) {
-      return { success: false, error: '未配置同步' }
+    if (!this.config?.githubToken) {
+      return { success: false, error: '未配置 GitHub Token' }
+    }
+
+    // 如果没有 gistId，尝试查找
+    if (!this.config.gistId) {
+      const gistId = await this.findGist()
+      if (gistId) {
+        this.config.gistId = gistId
+        this.saveConfig(this.config)
+      } else {
+        return { success: false, error: '未找到同步数据，请先在电脑上上传数据' }
+      }
     }
 
     try {
