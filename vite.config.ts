@@ -8,7 +8,7 @@ import { dirname } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  base: './',
+  base: '/bandmanager/',
   plugins: [
     react(),
     VitePWA({
