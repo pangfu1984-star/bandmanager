@@ -22,6 +22,7 @@ const SIDEBAR_ITEMS = [
   { to: '/scores', icon: <Music className="w-5 h-5" />, label: '乐谱库' },
   { to: '/setlists', icon: <List className="w-5 h-5" />, label: '歌单管理' },
   { to: '/band-settings', icon: <Users className="w-5 h-5" />, label: '乐队设置' },
+  { to: '/sync', icon: <Cloud className="w-5 h-5" />, label: '云端同步' },
   { to: '/backup', icon: <Shield className="w-5 h-5" />, label: '数据备份' },
 ]
 

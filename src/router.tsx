@@ -31,6 +31,7 @@ export function AppRouter() {
           <Route path="/band-settings" element={<WrapRoute component={BandSettingsPage} />} />
           <Route path="/backup" element={<WrapRoute component={BackupPage} />} />
           <Route path="/my" element={<WrapRoute component={MyPage} />} />
+          <Route path="/sync" element={<WrapRoute component={SyncPage} />} />
           <Route path="/user-guide" element={<WrapRoute component={() => (
             <div className="p-6 max-w-2xl mx-auto">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">用户操作手册</h1>
