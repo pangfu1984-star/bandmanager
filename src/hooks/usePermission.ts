@@ -2,8 +2,10 @@ import { useMemberStore } from '@/store/useMemberStore'
 import type { PermissionAction } from '@/types'
 
 export function usePermission() {
-  const getCurrentMember = useMemberStore(s => s.getCurrentMember)
-  const currentMember = getCurrentMember()
+  // 订阅 currentMemberId 和 members 的变化，确保权限实时更新
+  const currentMemberId = useMemberStore(s => s.currentMemberId)
+  const members = useMemberStore(s => s.members)
+  const currentMember = members.find(m => m.id === currentMemberId)
 
   const isAdmin = currentMember?.role === 'admin'
 

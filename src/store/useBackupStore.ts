@@ -4,7 +4,7 @@ import type { Backup, Score } from '@/types'
 import { formatFileSize } from '@/lib/utils'
 import JSZip from 'jszip'
 
-const MAX_BACKUPS = 3
+const MAX_BACKUPS = 5
 
 interface BackupState {
   backups: Backup[]

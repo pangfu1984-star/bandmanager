@@ -5,6 +5,7 @@ export interface Band {
   foundedYear: number
   description: string
   createdAt: number
+  adminPassword?: string // 管理员密码（明文存储，仅本地使用）
 }
 
 // ==================== 成员类型 ====================

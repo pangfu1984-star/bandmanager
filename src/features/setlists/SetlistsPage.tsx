@@ -26,6 +26,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { PART_TYPE_LABELS } from '@/lib/constants'
 import { formatDate, escapeHtml } from '@/lib/utils'
 import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 import { Plus, Trash2, Edit2, GripVertical, Music, Download, X, List, ChevronRight } from 'lucide-react'
 import type { Setlist, SetlistSong, PartType } from '@/types'
 
@@ -131,37 +132,74 @@ export function SetlistsPage() {
     }
   }
 
-  function exportPdf(setlist: Setlist) {
+  async function exportPdf(setlist: Setlist) {
     try {
-      const doc = new jsPDF()
-      doc.setFontSize(20)
-      doc.text(setlist.name, 20, 20)
-      if (setlist.description) {
-        doc.setFontSize(12)
-        doc.text(setlist.description, 20, 30)
-      }
-      doc.setFontSize(14)
-      doc.text('歌曲列表', 20, 45)
-
-      let y = 55
-      setlist.songs.forEach((song, i) => {
+      // 创建一个临时容器用于渲染 PDF 内容
+      const container = document.createElement('div')
+      container.style.cssText = `
+        position: fixed;
+        left: -9999px;
+        top: 0;
+        width: 595px;
+        padding: 40px;
+        background: white;
+        font-family: system-ui, -apple-system, sans-serif;
+      `
+      
+      // 构建 HTML 内容
+      let songsHtml = setlist.songs.map((song, i) => {
         const score = scores.find(s => s.id === song.scoreId)
         const name = score?.songName ?? '未知歌曲'
-        doc.setFontSize(12)
-        doc.text(`${i + 1}. ${name}`, 20, y)
-        y += 8
-        if (song.notes) {
-          doc.setFontSize(10)
-          doc.setTextColor(120, 120, 120)
-          doc.text(`  备注: ${song.notes}`, 20, y)
-          doc.setTextColor(0, 0, 0)
-          y += 7
-        }
-        if (y > 270) {
-          doc.addPage()
-          y = 20
-        }
+        const notesHtml = song.notes ? `<div style="margin-left: 20px; margin-top: 4px; font-size: 12px; color: #666;">备注: ${song.notes}</div>` : ''
+        return `
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 14px; font-weight: 500;">${i + 1}. ${name}</div>
+            ${notesHtml}
+          </div>
+        `
+      }).join('')
+      
+      container.innerHTML = `
+        <div style="max-width: 515px;">
+          <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 8px; color: #111;">${setlist.name}</h1>
+          ${setlist.description ? `<p style="font-size: 12px; color: #666; margin-bottom: 24px;">${setlist.description}</p>` : '<div style="margin-bottom: 16px;"></div>'}
+          <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #333;">歌曲列表</h2>
+          <div>${songsHtml}</div>
+        </div>
+      `
+      
+      document.body.appendChild(container)
+      
+      // 使用 html2canvas 渲染为图片
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
       })
+      
+      document.body.removeChild(container)
+      
+      // 创建 PDF 并插入图片
+      const doc = new jsPDF('p', 'pt', 'a4')
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = 595
+      const pageHeight = 842
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      
+      let heightLeft = imgHeight
+      let position = 0
+      
+      doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      
+      // 如果内容超过一页，添加新页面
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        doc.addPage()
+        doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      
       doc.save(`${setlist.name}.pdf`)
       toast.success('PDF已导出')
     } catch (e) {
@@ -244,7 +282,7 @@ export function SetlistsPage() {
               {currentSetlist.description && <p className="text-xs text-gray-400 truncate">{currentSetlist.description}</p>}
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => exportPdf(currentSetlist)} className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50" style={{ minHeight: 44 }}>
+              <button onClick={() => void exportPdf(currentSetlist)} className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50" style={{ minHeight: 44 }}>
                 <Download className="w-3.5 h-3.5" />PDF
               </button>
               <button onClick={() => exportJson(currentSetlist)} className="flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50" style={{ minHeight: 44 }}>
@@ -407,14 +445,16 @@ function SortableSetlistItem({ song, index, score, isEditingNotes, notesValue, o
             <p className="text-xs text-blue-500 mt-0.5 truncate">备注: {song.notes}</p>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={onEditNotes} className="p-2 text-gray-400 hover:text-blue-500 rounded-lg" style={{ minWidth: 44, minHeight: 44 }} title="编辑备注">
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={onRemove} className="p-2 text-gray-400 hover:text-red-500 rounded-lg" style={{ minWidth: 44, minHeight: 44 }}>
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={onEditNotes} className="p-2 text-gray-400 hover:text-blue-500 rounded-lg" style={{ minWidth: 44, minHeight: 44 }} title="编辑备注">
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={onRemove} className="p-2 text-gray-400 hover:text-red-500 rounded-lg" style={{ minWidth: 44, minHeight: 44 }}>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
       {isEditingNotes && (
         <div className="mt-2 pl-12">

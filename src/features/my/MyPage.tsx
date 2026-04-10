@@ -1,17 +1,57 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBandStore } from '@/store/useBandStore'
 import { useMemberStore } from '@/store/useMemberStore'
 import { usePermission } from '@/hooks/usePermission'
+import { useToast } from '@/hooks/useToast'
 import { ROLE_LABELS, APP_VERSION } from '@/lib/constants'
-import { Shield, ChevronRight, User, Music, LogOut, FileText } from 'lucide-react'
+import { Shield, ChevronRight, User, Music, LogOut, FileText, Lock, Eye, EyeOff } from 'lucide-react'
+import type { Member } from '@/types'
 
 export function MyPage() {
   const { getCurrentBand, bands, setCurrentBand } = useBandStore()
   const { getCurrentMember, setCurrentMember, members } = useMemberStore()
   const { isAdmin } = usePermission()
-
+  const { toast } = useToast()
   const currentBand = getCurrentBand()
   const currentMember = getCurrentMember()
+
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [pendingMember, setPendingMember] = useState<Member | null>(null)
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  const handleMemberChange = (memberId: string) => {
+    const targetMember = members.find(m => m.id === memberId)
+    if (!targetMember || !currentBand) {
+      setCurrentMember(memberId)
+      return
+    }
+
+    // 如果切换到管理员身份且设置了密码，需要验证
+    if (targetMember.role === 'admin' && currentBand.adminPassword && targetMember.id !== currentMember?.id) {
+      setPendingMember(targetMember)
+      setPassword('')
+      setShowPasswordDialog(true)
+      return
+    }
+
+    setCurrentMember(memberId)
+  }
+
+  const verifyPassword = () => {
+    if (!pendingMember || !currentBand) return
+
+    if (password === currentBand.adminPassword) {
+      setCurrentMember(pendingMember.id)
+      setShowPasswordDialog(false)
+      setPendingMember(null)
+      setPassword('')
+      toast.success('已切换为管理员身份')
+    } else {
+      toast.error('密码错误')
+    }
+  }
 
   return (
     <div className="overflow-auto h-full">
@@ -41,13 +81,18 @@ export function MyPage() {
                 <select
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
                   value={currentMember.id}
-                  onChange={e => setCurrentMember(e.target.value)}
+                  onChange={e => handleMemberChange(e.target.value)}
                   style={{ minHeight: 44 }}
                 >
                   {members.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} ({ROLE_LABELS[m.role]})</option>
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({ROLE_LABELS[m.role]}){m.role === 'admin' && currentBand?.adminPassword ? ' 🔒' : ''}
+                    </option>
                   ))}
                 </select>
+                {currentBand?.adminPassword && (
+                  <p className="text-xs text-gray-400 mt-1">切换为管理员需要输入密码</p>
+                )}
               </div>
             )}
           </div>
@@ -112,6 +157,62 @@ export function MyPage() {
           </div>
         </div>
       </div>
+
+      {/* 管理员密码验证弹窗 */}
+      {showPasswordDialog && pendingMember && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">验证管理员身份</h3>
+                <p className="text-sm text-gray-500">切换到 {pendingMember.name}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">管理员密码</label>
+                <div className="relative">
+                  <input
+                    autoFocus
+                    type={showPassword ? 'text' : 'password'}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 pr-10"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    style={{ minHeight: 44 }}
+                    placeholder="请输入管理员密码"
+                    onKeyDown={e => e.key === 'Enter' && verifyPassword()}
+                  />
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                onClick={() => { setShowPasswordDialog(false); setPendingMember(null); setPassword('') }}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                style={{ minHeight: 44 }}
+              >
+                取消
+              </button>
+              <button
+                onClick={verifyPassword}
+                className="px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg"
+                style={{ minHeight: 44 }}
+              >
+                验证
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

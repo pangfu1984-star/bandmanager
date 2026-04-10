@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useBandStore } from '@/store/useBandStore'
 import { syncService, type SyncConfig } from '@/lib/syncService'
+import { useBackupStore } from '@/store/useBackupStore'
 import { useToast } from '@/hooks/useToast'
-import { Cloud, CloudOff, Upload, Download, Settings, Check, AlertCircle, Copy } from 'lucide-react'
+import { usePermission } from '@/hooks/usePermission'
+import { Cloud, CloudOff, Upload, Download, Settings, Check, AlertCircle, Copy, Lock, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 
 export function SyncPage() {
   const { currentBandId, getCurrentBand } = useBandStore()
   const { toast } = useToast()
+  const { can, isAdmin } = usePermission()
+  const canUpload = can('manage_backup')
+  const { createAutoBackup } = useBackupStore()
   const band = getCurrentBand()
 
   const [config, setConfig] = useState<SyncConfig | null>(null)
@@ -14,6 +19,10 @@ export function SyncPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [uploadPassword, setUploadPassword] = useState('')
+  const [showUploadPassword, setShowUploadPassword] = useState(false)
 
   useEffect(() => {
     const loaded = syncService.loadConfig()
@@ -53,16 +62,40 @@ export function SyncPage() {
     }
   }
 
-  const handleUpload = async () => {
+  const handleUploadClick = () => {
     if (!currentBandId) {
       toast.error('请先选择乐队')
       return
     }
+    // 如果设置了管理员密码，需要先验证
+    if (band?.adminPassword) {
+      setUploadPassword('')
+      setShowPasswordDialog(true)
+      return
+    }
+    // 没有设置密码直接上传
+    doUpload()
+  }
+
+  const verifyUploadPassword = () => {
+    if (uploadPassword === band?.adminPassword) {
+      setShowPasswordDialog(false)
+      setUploadPassword('')
+      doUpload()
+    } else {
+      toast.error('密码错误')
+    }
+  }
+
+  const doUpload = async () => {
+    if (!currentBandId) return
     setIsLoading(true)
+    // 上传前自动在本地创建一次快照备份，保护历史数据
+    await createAutoBackup(currentBandId)
     const result = await syncService.uploadToCloud(currentBandId)
     setIsLoading(false)
     if (result.success) {
-      toast.success('数据已同步到云端')
+      toast.success('数据已同步到云端（本地已自动备份）')
       setConfig(syncService.loadConfig())
     } else {
       toast.error('同步失败: ' + result.error)
@@ -74,13 +107,16 @@ export function SyncPage() {
       toast.error('请先选择乐队')
       return
     }
+    setShowDownloadConfirm(false)
     setIsLoading(true)
+    // 下载覆盖前先备份当前本地数据
+    await createAutoBackup(currentBandId)
     const result = await syncService.downloadFromCloud(currentBandId)
     if (result.success && result.data) {
       const restore = await syncService.restoreToLocal(result.data)
       setIsLoading(false)
       if (restore.success) {
-        toast.success('数据已从云端恢复，请刷新页面')
+        toast.success('已从云端恢复数据，请刷新页面（原数据已备份）')
       } else {
         toast.error('恢复失败: ' + restore.error)
       }
@@ -189,35 +225,138 @@ export function SyncPage() {
 
       {/* 操作按钮 */}
       <div className="space-y-3">
-        <button
-          onClick={handleUpload}
-          disabled={!isConfigured || !band || isLoading}
-          className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-3 rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Upload className="w-5 h-5" />
-          {isLoading ? '同步中...' : '上传数据到云端'}
-        </button>
+        {/* 上传按钮：仅管理员可操作 */}
+        {canUpload ? (
+          <button
+            onClick={handleUploadClick}
+            disabled={!isConfigured || !band || isLoading}
+            className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-3 rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Upload className="w-5 h-5" />
+            {isLoading ? '同步中...' : '上传数据到云端'}
+          </button>
+        ) : (
+          <div className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-400 py-3 rounded-xl cursor-not-allowed border border-gray-200">
+            <Lock className="w-5 h-5" />
+            <span>上传数据（仅管理员）</span>
+          </div>
+        )}
 
         <button
-          onClick={handleDownload}
+          onClick={() => setShowDownloadConfirm(true)}
           disabled={!isConfigured || !band || isLoading}
           className="w-full flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-200 py-3 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-5 h-5" />
-          从云端恢复数据
+          从云端获取最新数据
         </button>
       </div>
 
+      {/* 下载二次确认弹窗 */}
+      {showDownloadConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <ShieldAlert className="w-6 h-6 text-amber-500 flex-shrink-0" />
+              <h3 className="font-semibold text-gray-900">确认从云端覆盖数据？</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              此操作会用云端数据<strong>覆盖</strong>本地数据。当前本地数据将自动备份，但仍建议确认后再操作。
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDownloadConfirm(false)}
+                className="flex-1 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDownload}
+                className="flex-1 py-2 text-sm text-white bg-blue-500 rounded-xl hover:bg-blue-600"
+              >
+                确认覆盖
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 权限说明 */}
+      {!isAdmin && (
+        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+          <Lock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700">
+            你当前以<strong>普通成员</strong>身份登录，只能从云端获取数据，无法上传覆盖云端数据。如需上传，请联系管理员。
+          </p>
+        </div>
+      )}
+
       {/* 说明 */}
-      <div className="mt-6 text-sm text-gray-500 space-y-2">
+      <div className="mt-4 text-sm text-gray-500 space-y-2">
         <p className="font-medium text-gray-700">使用说明：</p>
         <ul className="list-disc list-inside space-y-1">
           <li>数据存储在 GitHub Gist（私有）</li>
-          <li>上传后会生成一个同步链接</li>
-          <li>其他成员使用相同的 Token 即可同步</li>
+          <li>仅<strong>管理员</strong>可上传数据到云端</li>
+          <li>普通成员只能从云端获取（只读同步）</li>
           <li>乐谱文件需要重新上传（只同步元数据）</li>
         </ul>
       </div>
+
+      {/* 上传密码验证弹窗 */}
+      {showPasswordDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">验证管理员密码</h3>
+                <p className="text-sm text-gray-500">上传数据到云端</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">管理员密码</label>
+                <div className="relative">
+                  <input
+                    autoFocus
+                    type={showUploadPassword ? 'text' : 'password'}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 pr-10"
+                    value={uploadPassword}
+                    onChange={(e) => setUploadPassword(e.target.value)}
+                    style={{ minHeight: 44 }}
+                    placeholder="请输入管理员密码"
+                    onKeyDown={(e) => e.key === 'Enter' && verifyUploadPassword()}
+                  />
+                  <button
+                    onClick={() => setShowUploadPassword(!showUploadPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    {showUploadPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                onClick={() => { setShowPasswordDialog(false); setUploadPassword('') }}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                style={{ minHeight: 44 }}
+              >
+                取消
+              </button>
+              <button
+                onClick={verifyUploadPassword}
+                className="px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg"
+                style={{ minHeight: 44 }}
+              >
+                验证并上传
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

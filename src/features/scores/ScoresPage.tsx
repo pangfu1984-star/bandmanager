@@ -110,6 +110,7 @@ export function ScoresPage() {
       })
       toast.success('乐谱信息已更新')
       setEditingScore(null)
+      setForm({ songName: '', key: '', instrument: '', partType: 'main', tags: '' })
     } catch (e) {
       toast.error((e as Error).message)
     }

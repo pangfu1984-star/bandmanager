@@ -7,7 +7,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { EmptyState } from '@/components/EmptyState'
 import { ROLE_LABELS } from '@/lib/constants'
 import { escapeHtml } from '@/lib/utils'
-import { Plus, Edit2, Trash2, Users, Crown, Music } from 'lucide-react'
+import { Plus, Edit2, Trash2, Users, Crown, Music, Lock, Eye, EyeOff } from 'lucide-react'
 import type { Member, MemberRole } from '@/types'
 
 interface MemberFormData {
@@ -29,6 +29,9 @@ export function BandSettingsPage() {
   const [editingMember, setEditingMember] = useState<Member | null>(null)
   const [memberForm, setMemberForm] = useState<MemberFormData>({ name: '', instrument: '', role: 'member' })
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' })
+  const [showPassword, setShowPassword] = useState(false)
 
   if (!currentBand) return <EmptyState icon="🎸" title="暂无乐队" description="请先创建一个乐队" />
 
@@ -90,6 +93,8 @@ export function BandSettingsPage() {
         toast.success('成员已添加')
       }
       setShowMemberForm(false)
+      setEditingMember(null)
+      setMemberForm({ name: '', instrument: '', role: 'member' })
     } catch (e) {
       toast.error('操作失败：' + (e as Error).message)
     }
@@ -103,6 +108,20 @@ export function BandSettingsPage() {
       setDeleteTarget(null)
     } catch (e) {
       toast.error('删除失败：' + (e as Error).message)
+    }
+  }
+
+  async function saveAdminPassword() {
+    if (!can('manage_members')) { toast.error('权限不足'); return }
+    if (passwordForm.password.length < 4) { toast.error('密码至少需要4位'); return }
+    if (passwordForm.password !== passwordForm.confirmPassword) { toast.error('两次输入的密码不一致'); return }
+    try {
+      await updateBand(currentBand!.id, { adminPassword: passwordForm.password })
+      toast.success('管理员密码已设置')
+      setShowPasswordForm(false)
+      setPasswordForm({ password: '', confirmPassword: '' })
+    } catch (e) {
+      toast.error('设置失败：' + (e as Error).message)
     }
   }
 
@@ -288,6 +307,97 @@ export function BandSettingsPage() {
             <div className="flex gap-2 justify-end mt-5">
               <button onClick={() => setShowMemberForm(false)} className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg" style={{ minHeight: 44 }}>取消</button>
               <button onClick={saveMember} className="px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg" style={{ minHeight: 44 }}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 管理员密码设置 */}
+      {can('manage_members') && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-amber-500" />
+              管理员密码
+              {currentBand.adminPassword && (
+                <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">已设置</span>
+              )}
+            </h2>
+            <button
+              onClick={() => setShowPasswordForm(true)}
+              className="flex items-center gap-1.5 text-sm text-amber-600 hover:text-amber-700"
+              style={{ minHeight: 44, minWidth: 44 }}
+            >
+              <Edit2 className="w-4 h-4" />
+              {currentBand.adminPassword ? '修改' : '设置'}
+            </button>
+          </div>
+          <div className="p-4">
+            <p className="text-sm text-gray-600">
+              {currentBand.adminPassword
+                ? '已设置管理员密码。切换为管理员身份或上传数据到云端时需要验证密码。'
+                : '未设置管理员密码。建议设置密码以防止他人随意切换为管理员身份。'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 密码设置弹窗 */}
+      {showPasswordForm && (
+        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">
+              {currentBand.adminPassword ? '修改管理员密码' : '设置管理员密码'}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">密码 *</label>
+                <div className="relative">
+                  <input
+                    autoFocus
+                    type={showPassword ? 'text' : 'password'}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 pr-10"
+                    value={passwordForm.password}
+                    onChange={e => setPasswordForm(f => ({ ...f, password: e.target.value }))}
+                    style={{ minHeight: 44 }}
+                    placeholder="至少4位字符"
+                  />
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">确认密码 *</label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  value={passwordForm.confirmPassword}
+                  onChange={e => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                  style={{ minHeight: 44 }}
+                  placeholder="再次输入密码"
+                  onKeyDown={e => e.key === 'Enter' && saveAdminPassword()}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                onClick={() => { setShowPasswordForm(false); setPasswordForm({ password: '', confirmPassword: '' }) }}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                style={{ minHeight: 44 }}
+              >
+                取消
+              </button>
+              <button
+                onClick={saveAdminPassword}
+                className="px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded-lg"
+                style={{ minHeight: 44 }}
+              >
+                保存
+              </button>
             </div>
           </div>
         </div>
